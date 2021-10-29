@@ -8,11 +8,12 @@ def MatrixMultiply(A,B,c):
     m,n = A.shape
     m,p = B.shape
     if m <= c: #base case we dont need to partition
+        print("Base Case")
         C = np.full((m, p), 0)
-        for i in prange(m):
+        for i in range(m):
             for j in range(p):
                 for k in range(n):
-                    C[i][j] = C[i][j] + A[i][k]*B[k][j]
+                    C[i][j] += A[i][k]*B[k][j]
         return C
     Partition(A,B,c)
 
@@ -21,21 +22,33 @@ def Partition(A,B,c):
     m,n = A.shape
     n,p = B.shape # should we be verifying that the A column and the B row are same length instead of assuming
     if m <= n:
+        print("Case 1")
         #axis 0 = rows, axis 1 = columns
-        [A1,A2] = np.hsplit(A, 2)
-        [B1,B2] = np.vsplit(B, 2)
-        C = MatrixMultiply(A1,B1,c)+ MatrixMultiply(A2,B2,c)
+        [A1,A2] = np.array_split(A, 2, axis=1)
+        [B1,B2] = np.array_split(B, 2, axis=0)
+        print("New Matrices:")
+        print("A1:", A1)
+        print("A2:", A2)
+        print("B1:", B1)
+        print("B2:", B2)
+        C = MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
         return C
     else: #m>n
-        [A1,A2] = np.vsplit(A, 2)
-        [B1,B2] = np.hsplit(B, 2)
+        print("Case 2")
+        [A1,A2] = np.array_split(A, 2, axis=1)
+        [B1,B2] = np.array_split(B, 2, axis=0)
+        print("New Matrices:")
+        print("A1:", A1)
+        print("A2:", A2)
+        print("B1:", B1)
+        print("B2:", B2)
         C1 = MatrixMultiply(A1,B1,c)
         C2 = MatrixMultiply(A1,B2,c)
         C3 = MatrixMultiply(A2,B1,c)
         C4 = MatrixMultiply(A2,B2,c)
-        C12 = np.hstack(C1,C2) #supposed to be append horizontal. not sure which axis to use
-        C34 = np.hstack(C3,C4)
-        C = np.vstack(C12,C34)
+        C12 = np.hstack((C1,C2)) #supposed to be append horizontal. not sure which axis to use
+        C34 = np.hstack((C3,C4))
+        C = np.vstack((C12,C34))
         return C
 
 def RF(A, B, C):
@@ -51,8 +64,8 @@ def RFParallel(A, B, C, i):
     return C[i]
 
 if __name__ == "__main__":
-    row = 300
-    col = 300
+    row = 10
+    col = 10
     testNums = [10, 20, 50, 80, 100, 150, 200, 300]
 
     A = np.random.randint(10, size=(row, col))
@@ -62,7 +75,11 @@ if __name__ == "__main__":
     print("Rows:", row)
     print("Cols:", col)
     cores = cpu_count()
+    print("Cores:", cores)
+    print("A", A)
+    print("B", B)
     result = MatrixMultiply(A,B,cores)
+    print(result)
 
 
     #print("Serial:", timeit.timeit('RF(A,B,copyC)', globals=globals(), number=1))
