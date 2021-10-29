@@ -1,7 +1,22 @@
 import numpy as np
 import timeit
 from multiprocessing import Pool
+from numba import njit, prange
 
+@njit(parallel=True)#compile function so it runs as machine code
+def MatrixMultiply(A,B,Cores):
+    m,n = A.shape
+    m,p = B.shape
+    if m <= c: #base case we dont need to partition
+        C = np.full((m, p), 0)
+        for i in prange(m):
+            for j in range(p):
+                for k in range(n):
+                    C[i][j] = C[i][j] + A[i][k]*B[k][j]
+        return C
+    Partition(A,B)
+
+@njit#compile function to run as machine code and not through interpreter
 def Partition(A,B):
     m,n = A.shape
     n,p = B.shape # should we be verifiying that the A column and the B row are same length instead of assuming
