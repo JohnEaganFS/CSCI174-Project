@@ -52,8 +52,8 @@ def RFParallel(A, B, C, i):
     return C[i]
 
 if __name__ == "__main__":
-    row = 300
-    col = 300
+    row = 3000
+    col = 3000
     testNums = [10, 20, 50, 80, 100, 150, 200, 300]
     np.random.seed(42)
 
@@ -69,16 +69,21 @@ if __name__ == "__main__":
     print("B:\n", B)
 
     start = time.time()
-    result = MatrixMultiply(A,B,cores)
+    result = MatrixMultiply(A,B,row/cores)
     end = time.time()
     print("C:\n",result)
     print("Time Taken:", end - start)
 
-    start = time.time()
-    RF(A,B,C)
-    end = time.time()
-    print("Verify Result:", np.array_equal(result, C))
-    print("Serial Time Taken:", end - start)
+    # start = time.time()
+    # np.matmul(A,B)
+    # end = time.time()
+    # print("Numpy matmul time:", end-start)
+
+    # start = time.time()
+    # RF(A,B,C)
+    # end = time.time()
+    # print("Verify Result:", np.array_equal(result, C))
+    # print("Serial Time Taken:", end - start)
 
     #print("Serial:", timeit.timeit('RF(A,B,copyC)', globals=globals(), number=1))
 
