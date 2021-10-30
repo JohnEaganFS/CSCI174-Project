@@ -1,6 +1,7 @@
 import numpy as np
 import timeit
 import time
+from scipy.io import mmread
 from multiprocessing import Pool, cpu_count
 from numba import jit, njit, prange, cuda
 from scipy.linalg import blas as FB
@@ -92,25 +93,56 @@ if __name__ == "__main__":
     B = np.random.randint(10, size=(row, col))
     C = np.full((row, col), 0)
     cores = cpu_count()
-
+    
+    """
     print("Rows:", row)
     print("Cols:", col)
     print("Cores:", cores)
     print("A:\n", A)
     print("B:\n", B)
    
-    #print(timeit.timeit("Partition(A,B,row/cores)", globals=globals(), number=1))
+    print(timeit.timeit("Partition(A,B,row/cores)", globals=globals(), number=1))
 
     start = time.time()
     result = MatrixMultiply(A,B,row/cores)
-    #result = allInOne(A,B,row/cores)
+    result = allInOne(A,B,row/cores)
     #result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
     end = time.time()
     print("C:\n",result)
     print("Time Taken:", end - start)
     
     start = time.time()
-    #temp = 0
+    temp = 0
+    temp = numpyMult(A.astype(float),B.astype(float))
+    end = time.time()
+    print("C:\n",temp)
+    print("Time Taken:", end - start)
+    """
+    
+    
+    """ 
+    Example reading datafile 
+    We can adjust this to read 2 different data files
+    We just have to make sure rows of col A = row B
+    """
+    fileName = '494_bus.mtx'
+    mat = mmread(fileName)        #reads the mtx file
+    A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
+    B = A                         #Another copy to multiply by itself. 
+    row,col = A.shape
+    print("Rows:", row)
+    print("Cols:", col)
+    print("Cores:", cores)
+    print("A:\n", A)
+    print("B:\n", B)
+    start = time.time()
+    result = MatrixMultiply(A,B,row/cores)
+    end = time.time()
+    print("C:\n",result)
+    print("Time Taken:", end - start)
+   
+    start = time.time()
+    temp = 0
     temp = numpyMult(A.astype(float),B.astype(float))
     end = time.time()
     print("C:\n",temp)
