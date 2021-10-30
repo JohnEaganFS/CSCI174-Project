@@ -2,10 +2,11 @@ import numpy as np
 import timeit
 import time
 from multiprocessing import Pool, cpu_count
-from numba import njit, prange
+from numba import jit, njit, prange, cuda
 from scipy.linalg import blas as FB
 
 @njit(parallel=True, fastmath=True)#compile function so it runs as machine code
+#@jit(target = "cuda")
 def MatrixMultiply(A,B,c):
     m,n = A.shape
     n,p = B.shape
@@ -15,7 +16,8 @@ def MatrixMultiply(A,B,c):
             for j in range(p):
                 for k in range(n):
                     C[i][j] += A[i][k]*B[k][j]
-        #C = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
+                    
+        #C = FB.dgemm(alpha=1., a=A, b=B, trans_b=True) 
         return C
     return Partition(A,B,c)
 
