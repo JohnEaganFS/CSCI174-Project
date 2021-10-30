@@ -3,8 +3,9 @@ import timeit
 import time
 from multiprocessing import Pool, cpu_count
 from numba import njit, prange
+from scipy.linalg import blas as FB
 
-@njit(parallel=True)#compile function so it runs as machine code
+@njit(parallel=True, fastmath=True)#compile function so it runs as machine code
 def MatrixMultiply(A,B,c):
     m,n = A.shape
     n,p = B.shape
@@ -14,10 +15,11 @@ def MatrixMultiply(A,B,c):
             for j in range(p):
                 for k in range(n):
                     C[i][j] += A[i][k]*B[k][j]
+        #C = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
         return C
     return Partition(A,B,c)
 
-@njit#compile function to run as machine code and not through interpreter
+@njit(parallel=True, fastmath=True)#compile function to run as machine code and not through interpreter
 def Partition(A,B,c):
     m,n = A.shape
     n,p = B.shape # should we be verifying that the A column and the B row are same length instead of assuming
@@ -39,17 +41,9 @@ def Partition(A,B,c):
         C = np.vstack((C12,C34))
         return C
 
-def RF(A, B, C):
-    for i in range(len(A)):
-        for j in range(len(B[0])):
-            for k in range(len(B)):
-                C[i][j] += A[i][k] * B[k][j]
-
-def RFParallel(A, B, C, i):
-    for j in range(len(B[0])):
-        for k in range(len(B)):
-            C[i][j] += A[i][k] * B[k][j]
-    return C[i]
+@njit
+def numpyMult(A,B):
+    return np.dot(A,B)
 
 if __name__ == "__main__":
     row = 3000
@@ -70,27 +64,14 @@ if __name__ == "__main__":
 
     start = time.time()
     result = MatrixMultiply(A,B,row/cores)
+    #result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
     end = time.time()
     print("C:\n",result)
     print("Time Taken:", end - start)
-
-    # start = time.time()
-    # np.matmul(A,B)
-    # end = time.time()
-    # print("Numpy matmul time:", end-start)
-
-    # start = time.time()
-    # RF(A,B,C)
-    # end = time.time()
-    # print("Verify Result:", np.array_equal(result, C))
-    # print("Serial Time Taken:", end - start)
-
-    #print("Serial:", timeit.timeit('RF(A,B,copyC)', globals=globals(), number=1))
-
-    #pool = Pool()
-    #rows = len(A)
-    #data = [(A, B, C, i) for i in range(rows)]
-    #print("Parallel", timeit.timeit('pool.starmap(RFParallel, data)', globals=globals(), number=1))
-    #C = pool.starmap(RFParallel, data)
-    #C = [list(array) for array in C]
-    #print(C)
+    
+    start = time.time()
+    #temp = 0
+    temp = numpyMult(A.astype(float),B.astype(float))
+    end = time.time()
+    print("C:\n",temp)
+    print("Time Taken:", end - start)
