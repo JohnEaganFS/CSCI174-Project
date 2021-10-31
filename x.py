@@ -94,23 +94,24 @@ if __name__ == "__main__":
     C = np.full((row, col), 0)
     cores = cpu_count()
     
-    """
+    
     print("Rows:", row)
     print("Cols:", col)
     print("Cores:", cores)
     print("A:\n", A)
     print("B:\n", B)
    
-    print(timeit.timeit("Partition(A,B,row/cores)", globals=globals(), number=1))
+    #print(timeit.timeit("Partition(A,B,row/cores)", globals=globals(), number=1))
 
     start = time.time()
     result = MatrixMultiply(A,B,row/cores)
-    result = allInOne(A,B,row/cores)
+    #result = allInOne(A,B,row/cores)
     #result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
     end = time.time()
     print("C:\n",result)
     print("Time Taken:", end - start)
     
+    """
     start = time.time()
     temp = 0
     temp = numpyMult(A.astype(float),B.astype(float))
@@ -125,7 +126,7 @@ if __name__ == "__main__":
     We can adjust this to read 2 different data files
     We just have to make sure rows of col A = row B
     """
-    fileName = '494_bus.mtx'
+    fileName = 'datasets/494_bus.mtx'
     mat = mmread(fileName)        #reads the mtx file
     A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
     B = A                         #Another copy to multiply by itself. 
