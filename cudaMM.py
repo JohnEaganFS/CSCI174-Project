@@ -9,52 +9,49 @@ TPB = 16
 
 @cuda.jit
 def fast_matmul(A, B, C):
-    """
-    Perform matrix multiplication of C = A * B
-    Each thread computes one element of the result matrix C
-    """
-
     # Define an array in the shared memory
     # The size and type of the arrays must be known at compile time
     sA = cuda.shared.array(shape=(TPB, TPB), dtype=float32)
     sB = cuda.shared.array(shape=(TPB, TPB), dtype=float32)
 
     x, y = cuda.grid(2)
-    
+
     tx = cuda.threadIdx.x
     ty = cuda.threadIdx.y
-    
-    if x >= C.shape[0] and y >= C.shape[1]:
-        # Quit if (x, y) is outside of valid C boundary
-        return
+    bpg = cuda.gridDim.x    # blocks per grid
 
     # Each thread computes one element in the result matrix.
     # The dot product is chunked into dot products of TPB-long vectors.
-    tmp = 0.
-    for i in range(int(A.shape[1] / TPB)):
+    tmp = float32(0.)
+    for i in range(bpg):
         # Preload data into shared memory
-        sA[tx, ty] = A[x, ty + i * TPB]
-        sB[tx, ty] = B[tx + i * TPB, y]
+        sA[ty, tx] = 0
+        sB[ty, tx] = 0
+        if y < A.shape[0] and (tx+i*TPB) < A.shape[1]:
+          sA[ty, tx] = A[y, tx + i * TPB]
+        if x < B.shape[1] and (ty+i*TPB) < B.shape[0]:
+          sB[ty, tx] = B[ty + i * TPB, x]
 
         # Wait until all threads finish preloading
         cuda.syncthreads()
 
         # Computes partial product on the shared memory
         for j in range(TPB):
-            tmp += sA[tx, j] * sB[j, ty]
+            tmp += sA[ty, j] * sB[j, tx]
 
         # Wait until all threads finish computing
         cuda.syncthreads()
-
-    C[x, y] = tmp
+    if y < C.shape[0] and x < C.shape[1]:
+        C[y, x] = tmp
 
 # The data array
-A = numpy.full((TPB*10, TPB*10), 3, numpy.float) # [32 x 48] matrix containing all 3's
-B = numpy.full((TPB*10, TPB*10), 4, numpy.float) # [48 x 16] matrix containing all 4's
+n = 1000
+A = numpy.full((TPB*n, TPB*n), 3, float)
+B = numpy.full((TPB*n, TPB*n), 4, float)
 
 A_global_mem = cuda.to_device(A)
 B_global_mem = cuda.to_device(B)
-C_global_mem = cuda.device_array((TPB*10, TPB*10)) # [32 x 16] matrix result
+C_global_mem = cuda.device_array((TPB*n, TPB*n))
 
 # Configure the blocks
 threadsperblock = (TPB, TPB)
