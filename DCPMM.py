@@ -5,6 +5,7 @@ from scipy.io import mmread
 from multiprocessing import Pool, cpu_count
 from numba import jit, njit, prange, cuda
 from scipy.linalg import blas as FB
+from pynvml import *
 
 def MatrixMultiply(A,B,c):
     m,n = A.shape
@@ -14,41 +15,67 @@ def MatrixMultiply(A,B,c):
         B = cp.array(B)
         C = cp.matmul(A,B)
         return cp.asnumpy(C)
-    return cp.asnumpy(Partition(A,B,c))
+    return Partition(A,B,c)
 
 def Partition(A,B,c):
     m,n = A.shape
     n,p = B.shape # should we be verifying that the A column and the B row are same length instead of assuming
-    A = cp.array(A)
-    B = cp.array(B)
-    if m <= n:
-        #axis 0 = rows, axis 1 = columns
-        [A1,A2] = cp.array_split(A, 2, axis=1)
-        [B1,B2] = cp.array_split(B, 2, axis=0)
-        C = MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
-        return C
-    else: #m>n
-        [A1,A2] = cp.array_split(A, 2, axis=0)
-        [B1,B2] = cp.array_split(B, 2, axis=1)
-        C1 = MatrixMultiply(A1,B1,c)
-        C2 = MatrixMultiply(A1,B2,c)
-        C3 = MatrixMultiply(A2,B1,c)
-        C4 = MatrixMultiply(A2,B2,c)
-        
-        C12 = cp.hstack((C1,C2)) #supposed to be append horizontal. not sure which axis to use
-        C34 = cp.hstack((C3,C4))
-        C = cp.vstack((C12,C34))
-        return C
+    
+    h = nvmlDeviceGetHandleByIndex(0)
+    info = nvmlDeviceGetMemoryInfo(h)
+    if (m < info.total / 400000):
+        A = cp.array(A)
+        B = cp.array(B)
+        if m <= n:
+            #axis 0 = rows, axis 1 = columns
+            [A1,A2] = cp.array_split(A, 2, axis=1)
+            [B1,B2] = cp.array_split(B, 2, axis=0)
+            C = MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
+            return C
+        else: #m>n
+            [A1,A2] = cp.array_split(A, 2, axis=0)
+            [B1,B2] = cp.array_split(B, 2, axis=1)
+            C1 = MatrixMultiply(A1,B1,c)
+            C2 = MatrixMultiply(A1,B2,c)
+            C3 = MatrixMultiply(A2,B1,c)
+            C4 = MatrixMultiply(A2,B2,c)
+            
+            C12 = cp.hstack((C1,C2)) #supposed to be append horizontal. not sure which axis to use
+            C34 = cp.hstack((C3,C4))
+            C = cp.vstack((C12,C34))
+            return cp.asnumpy(C)
+    else:
+        if m <= n:
+            #axis 0 = rows, axis 1 = columns
+            [A1,A2] = np.array_split(A, 2, axis=1)
+            [B1,B2] = np.array_split(B, 2, axis=0)
+            C = MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
+            return C
+        else: #m>n
+            [A1,A2] = np.array_split(A, 2, axis=0)
+            [B1,B2] = np.array_split(B, 2, axis=1)
+            C1 = MatrixMultiply(A1,B1,c)
+            C2 = MatrixMultiply(A1,B2,c)
+            C3 = MatrixMultiply(A2,B1,c)
+            C4 = MatrixMultiply(A2,B2,c)
+            
+            C12 = np.hstack((C1,C2)) #supposed to be append horizontal. not sure which axis to use
+            C34 = np.hstack((C3,C4))
+            C = np.vstack((C12,C34))
+            return C
 
 def numpyMult(A,B):
     return np.dot(A,B)
 
 def cupyMult(A,B):
+    A = cp.array(A)
+    B = cp.array(B)
     return cp.matmul(A,B)
 
 if __name__ == "__main__":
-    row = 10000
-    col = 10000
+    nvmlInit()
+    row = 20000
+    col = 20000
     testNums = [10, 20, 50, 80, 100, 150, 200, 300]
     np.random.seed(42)
 
@@ -69,12 +96,12 @@ if __name__ == "__main__":
     print("Our Algorithm")
     print("Time Taken:", end - start)
 
-    start = time.time()
-    temp = numpyMult(A.astype(float),B.astype(float))
-    end = time.time()
+    #start = time.time()
+    #temp = numpyMult(A.astype(float),B.astype(float))
+    #end = time.time()
     #print("C:\n",temp)
-    print("Numpy MM")
-    print("Time Taken:", end - start)
+    #print("Numpy MM")
+    #print("Time Taken:", end - start)
 
     start = time.time()
     temp = cupyMult(A,B)
