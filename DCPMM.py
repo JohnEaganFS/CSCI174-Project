@@ -19,7 +19,7 @@ def Partition(A,B,c):
     m,n = A.shape
     h = nvmlDeviceGetHandleByIndex(0)
     info = nvmlDeviceGetMemoryInfo(h)
-    if (10 * m**2 < info.free):
+    if (100 * m**2 < info.free):
         return PartitionGPU(cp.array(A),cp.array(B),c)
     else:
         return PartitionCPU(A,B,c)
