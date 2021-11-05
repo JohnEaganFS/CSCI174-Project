@@ -45,7 +45,7 @@ def fast_matmul(A, B, C):
         C[y, x] = tmp
 
 # The data array
-n = 1000
+n = 500
 A = numpy.full((TPB*n, TPB*n), 3, float)
 B = numpy.full((TPB*n, TPB*n), 4, float)
 
