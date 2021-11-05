@@ -9,60 +9,67 @@ from pynvml import *
 
 def MatrixMultiply(A,B,c):
     m,n = A.shape
-    n,p = B.shape
     if m <= c: #base case we dont need to partition
         A = cp.array(A)
         B = cp.array(B)
-        C = cp.matmul(A,B)
-        return cp.asnumpy(C)
+        return cp.matmul(A,B)
     return Partition(A,B,c)
 
 def Partition(A,B,c):
     m,n = A.shape
-    n,p = B.shape # should we be verifying that the A column and the B row are same length instead of assuming
-    
     h = nvmlDeviceGetHandleByIndex(0)
     info = nvmlDeviceGetMemoryInfo(h)
-    if (m < info.total / 400000):
-        A = cp.array(A)
-        B = cp.array(B)
-        if m <= n:
-            #axis 0 = rows, axis 1 = columns
-            [A1,A2] = cp.array_split(A, 2, axis=1)
-            [B1,B2] = cp.array_split(B, 2, axis=0)
-            C = MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
-            return C
-        else: #m>n
-            [A1,A2] = cp.array_split(A, 2, axis=0)
-            [B1,B2] = cp.array_split(B, 2, axis=1)
-            C1 = MatrixMultiply(A1,B1,c)
-            C2 = MatrixMultiply(A1,B2,c)
-            C3 = MatrixMultiply(A2,B1,c)
-            C4 = MatrixMultiply(A2,B2,c)
-            
-            C12 = cp.hstack((C1,C2)) #supposed to be append horizontal. not sure which axis to use
-            C34 = cp.hstack((C3,C4))
-            C = cp.vstack((C12,C34))
-            return cp.asnumpy(C)
+    if (10 * m**2 < info.free):
+        return PartitionGPU(cp.array(A),cp.array(B),c)
     else:
-        if m <= n:
-            #axis 0 = rows, axis 1 = columns
-            [A1,A2] = np.array_split(A, 2, axis=1)
-            [B1,B2] = np.array_split(B, 2, axis=0)
-            C = MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
-            return C
-        else: #m>n
-            [A1,A2] = np.array_split(A, 2, axis=0)
-            [B1,B2] = np.array_split(B, 2, axis=1)
-            C1 = MatrixMultiply(A1,B1,c)
-            C2 = MatrixMultiply(A1,B2,c)
-            C3 = MatrixMultiply(A2,B1,c)
-            C4 = MatrixMultiply(A2,B2,c)
-            
-            C12 = np.hstack((C1,C2)) #supposed to be append horizontal. not sure which axis to use
-            C34 = np.hstack((C3,C4))
-            C = np.vstack((C12,C34))
-            return C
+        return PartitionCPU(A,B,c)
+
+def PartitionGPU(A,B,c):
+    m,n = A.shape
+    if m <= n:
+        #axis 0 = rows, axis 1 = columns
+        [A1,A2] = cp.array_split(A, 2, axis=1)
+        [B1,B2] = cp.array_split(B, 2, axis=0)
+        #return MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
+        return cp.asnumpy(MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c))
+    else: #m>n
+        [A1,A2] = cp.array_split(A, 2, axis=0)
+        [B1,B2] = cp.array_split(B, 2, axis=1)
+
+        C1 = MatrixMultiply(A1,B1,c)
+        C2 = MatrixMultiply(A1,B2,c)
+        C12 = cp.hstack((C1,C2))
+        del C1
+        del C2
+
+        C3 = MatrixMultiply(A2,B1,c)
+        C4 = MatrixMultiply(A2,B2,c)
+        C34 = cp.hstack((C3,C4))
+        del C3
+        del C4
+        #return cp.vstack((C12,C34))
+        return cp.asnumpy(cp.vstack((C12,C34)))
+
+def PartitionCPU(A,B,c):
+    m,n = A.shape
+    if m <= n:
+        #axis 0 = rows, axis 1 = columns
+        [A1,A2] = np.array_split(A, 2, axis=1)
+        [B1,B2] = np.array_split(B, 2, axis=0)
+        C = MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
+        return C
+    else: #m>n
+        [A1,A2] = np.array_split(A, 2, axis=0)
+        [B1,B2] = np.array_split(B, 2, axis=1)
+        C1 = MatrixMultiply(A1,B1,c)
+        C2 = MatrixMultiply(A1,B2,c)
+        C3 = MatrixMultiply(A2,B1,c)
+        C4 = MatrixMultiply(A2,B2,c)
+        
+        C12 = np.hstack((C1,C2)) #supposed to be append horizontal. not sure which axis to use
+        C34 = np.hstack((C3,C4))
+        C = np.vstack((C12,C34))
+        return C
 
 def numpyMult(A,B):
     return np.dot(A,B)
@@ -103,12 +110,12 @@ if __name__ == "__main__":
     #print("Numpy MM")
     #print("Time Taken:", end - start)
 
-    start = time.time()
-    temp = cupyMult(A,B)
-    end = time.time()
+   # start = time.time()
+    #temp = cupyMult(A,B)
+   # end = time.time()
     #print("C:\n",temp)
-    print("Cupy MM")
-    print("Time Taken:", end - start)
+   # print("Cupy MM")
+   # print("Time Taken:", end - start)
 
     print()
     print("Reading Matrix File Test")
