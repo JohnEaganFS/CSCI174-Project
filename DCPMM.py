@@ -7,26 +7,23 @@ from numba import jit, njit, prange, cuda
 from scipy.linalg import blas as FB
 from pynvml import *
 
-def MatrixMultiply(A,B,c):
-    m,n = A.shape
+def MatrixMultiply(A,B,c,m,n):
     if m <= c: #base case we dont need to partition
         #if isinstance(A, np.ndarray):
         A = cp.array(A)
         B = cp.array(B)
         return cp.matmul(A,B)
-    return Partition(A,B,c)
+    return Partition(A,B,c,m,n)
 
-def Partition(A,B,c):
-    m,n = A.shape
+def Partition(A,B,c,m,n):
     h = nvmlDeviceGetHandleByIndex(0)
     info = nvmlDeviceGetMemoryInfo(h)
     if (20 * m**2 < info.free):
-        return PartitionGPU(cp.array(A),cp.array(B),c)
+        return PartitionGPU(cp.array(A),cp.array(B),c,m,n)
     else:
-        return PartitionCPU(A,B,c)
+        return PartitionCPU(A,B,c,m,n)
 
-def PartitionGPU(A,B,c):
-    m,n = A.shape
+def PartitionGPU(A,B,c,m,n):
     #print(type(A))
     #print(type(B))
     if m <= n:
@@ -34,43 +31,42 @@ def PartitionGPU(A,B,c):
         [A1,A2] = cp.array_split(A, 2, axis=1)
         [B1,B2] = cp.array_split(B, 2, axis=0)
         #print(type(A1))
-        return MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
+        return MatrixMultiply(A1,B1,c,m,n) + MatrixMultiply(A2,B2,c,m,n)
         #return cp.asnumpy(MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c))
     else: #m>n
         [A1,A2] = cp.array_split(A, 2, axis=0)
         [B1,B2] = cp.array_split(B, 2, axis=1)
 
-        C1 = MatrixMultiply(A1,B1,c)
-        C2 = MatrixMultiply(A1,B2,c)
+        C1 = MatrixMultiply(A1,B1,c,m,n)
+        C2 = MatrixMultiply(A1,B2,c,m,n)
         C12 = cp.hstack((C1,C2))
         del C1
         del C2
 
-        C3 = MatrixMultiply(A2,B1,c)
-        C4 = MatrixMultiply(A2,B2,c)
+        C3 = MatrixMultiply(A2,B1,c,m,n)
+        C4 = MatrixMultiply(A2,B2,c,m,n)
         C34 = cp.hstack((C3,C4))
         del C3
         del C4
         return cp.vstack((C12,C34))
         #return cp.asnumpy(cp.vstack((C12,C34)))
 
-def PartitionCPU(A,B,c):
-    m,n = A.shape
+def PartitionCPU(A,B,c,m,n):
     A = cp.asnumpy(A)
     B = cp.asnumpy(B)
     if m <= n:
         #axis 0 = rows, axis 1 = columns
         [A1,A2] = np.array_split(A, 2, axis=1)
         [B1,B2] = np.array_split(B, 2, axis=0)
-        C = cp.asnumpy(MatrixMultiply(A1,B1,c)) + cp.asnumpy(MatrixMultiply(A2,B2,c))
+        C = cp.asnumpy(MatrixMultiply(A1,B1,c,m,n)) + cp.asnumpy(MatrixMultiply(A2,B2,c,m,n))
         return C
     else: #m>n
         [A1,A2] = np.array_split(A, 2, axis=0)
         [B1,B2] = np.array_split(B, 2, axis=1)
-        C1 = cp.asnumpy(MatrixMultiply(A1,B1,c))
-        C2 = cp.asnumpy(MatrixMultiply(A1,B2,c))
-        C3 = cp.asnumpy(MatrixMultiply(A2,B1,c))
-        C4 = cp.asnumpy(MatrixMultiply(A2,B2,c))
+        C1 = cp.asnumpy(MatrixMultiply(A1,B1,c,m,n))
+        C2 = cp.asnumpy(MatrixMultiply(A1,B2,c,m,n))
+        C3 = cp.asnumpy(MatrixMultiply(A2,B1,c,m,n))
+        C4 = cp.asnumpy(MatrixMultiply(A2,B2,c,m,n))
         
         C12 = np.hstack((C1,C2)) #supposed to be append horizontal. not sure which axis to use
         C34 = np.hstack((C3,C4))
@@ -103,7 +99,7 @@ if __name__ == "__main__":
     print("B:\n", B)
 
     start = time.time()
-    result = MatrixMultiply(A,B,row/cores)
+    result = MatrixMultiply(A,B,row/cores,row,col)
     end = time.time()
     print("C:\n",result)
     print("Our Algorithm")
@@ -137,7 +133,7 @@ if __name__ == "__main__":
     print("A:\n", A)
     print("B:\n", B)
     start = time.time()
-    result = MatrixMultiply(A,B,row/cores)
+    result = MatrixMultiply(A,B,row/cores,row,col)
     end = time.time()
     print("C:\n",result)
     print("Time Taken:", end - start)
