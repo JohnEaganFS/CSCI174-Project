@@ -10,13 +10,17 @@ def MatrixMultiply(A,B,c):
     m,n = A.shape
     n,p = B.shape
     if m <= c: #base case we dont need to partition
+        A = cp.array(A)
+        B = cp.array(B)
         C = cp.matmul(A,B)
-        return C
-    return Partition(A,B,c)
+        return cp.asnumpy(C)
+    return cp.asnumpy(Partition(A,B,c))
 
 def Partition(A,B,c):
     m,n = A.shape
     n,p = B.shape # should we be verifying that the A column and the B row are same length instead of assuming
+    A = cp.array(A)
+    B = cp.array(B)
     if m <= n:
         #axis 0 = rows, axis 1 = columns
         [A1,A2] = cp.array_split(A, 2, axis=1)
@@ -48,11 +52,8 @@ if __name__ == "__main__":
     testNums = [10, 20, 50, 80, 100, 150, 200, 300]
     np.random.seed(42)
 
-    A = cp.random.randint(10, size=(row, col))
-    B = cp.random.randint(10, size=(row, col))
-    Anp = cp.asnumpy(A)
-    Bnp = cp.asnumpy(B)
-    #C = np.full((row, col), 0)
+    A = np.random.randint(10, size=(row, col))
+    B = np.random.randint(10, size=(row, col))
     cores = cpu_count()
     
     print("Rows:", row)
@@ -69,7 +70,7 @@ if __name__ == "__main__":
     print("Time Taken:", end - start)
 
     start = time.time()
-    temp = numpyMult(Anp.astype(float),Bnp.astype(float))
+    temp = numpyMult(A.astype(float),B.astype(float))
     end = time.time()
     #print("C:\n",temp)
     print("Numpy MM")
@@ -80,4 +81,23 @@ if __name__ == "__main__":
     end = time.time()
     #print("C:\n",temp)
     print("Cupy MM")
+    print("Time Taken:", end - start)
+
+    print()
+    print("Reading Matrix File Test")
+    fileName = 'datasets/494_bus.mtx'
+    mat = mmread(fileName)        #reads the mtx file
+    A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
+    A = cp.array(A)
+    B = cp.array(A)
+    row,col = A.shape
+    print("Rows:", row)
+    print("Cols:", col)
+    print("Cores:", cores)
+    print("A:\n", A)
+    print("B:\n", B)
+    start = time.time()
+    result = MatrixMultiply(A,B,row/cores)
+    end = time.time()
+    print("C:\n",result)
     print("Time Taken:", end - start)
