@@ -87,8 +87,8 @@ def cupyMult(A,B):
 
 if __name__ == "__main__":
     nvmlInit()
-    row = 30000
-    col = 30000
+    row = 20000
+    col = 20000
     testNums = [10, 20, 50, 80, 100, 150, 200, 300]
     np.random.seed(42)
 
