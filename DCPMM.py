@@ -3,11 +3,9 @@ import cupy as cp
 import time as time
 import math
 from scipy.io import mmread
-from multiprocessing import Pool, cpu_count
-from numba import jit, njit, prange, cuda
+from multiprocessing import cpu_count
 from scipy.linalg import blas as FB
 from pynvml import *
-import pandas as pd
 
 def MatrixMultiply(A,B,c):
     m,n = A.shape
@@ -23,7 +21,7 @@ def Partition(A,B,c):
     #h = nvmlDeviceGetHandleByIndex(0)
     info = nvmlDeviceGetMemoryInfo(h)
     #if (15 * m**2 < info.free):
-    if (((m*n) + (n*p)) * 16 < info.free):
+    if (((m*n) + (n*p)) * 8 < info.free):
         #maybe time these
         return PartitionGPU(A,B,c)
     else:
@@ -102,6 +100,9 @@ if __name__ == "__main__":
     nvmlInit()
     h = nvmlDeviceGetHandleByIndex(0)
     info = nvmlDeviceGetMemoryInfo(h)
+    cputoGPUCounter = 0
+    gputoCPUCounter = 0
+
     #print(info.free)
     partitionLimit = math.sqrt(info.free / (8)) / 2
     #print(partitionLimit)
@@ -128,19 +129,12 @@ if __name__ == "__main__":
     print("Our Algorithm")
     print("Time Taken:", end - start)
 
-    #start = time.time()
-    #temp = numpyMult(A.astype(float),B.astype(float))
-    #end = time.time()
-    #print("C:\n",temp)
-    #print("Numpy MM")
-    #print("Time Taken:", end - start)
-
-    start = time.time()
-    temp = cupyMult(A,B)
-    end = time.time()
-    print("C:\n",temp)
-    print("Cupy MM")
-    print("Time Taken:", end - start)
+    # start = time.time()
+    # temp = cupyMult(A,B)
+    # end = time.time()
+    # print("C:\n",temp)
+    # print("Cupy MM")
+    # print("Time Taken:", end - start)
 
     # start = time.time()
     # result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
@@ -152,6 +146,7 @@ if __name__ == "__main__":
     fileNames = ['datasets/494_bus.mtx', 'datasets/bcsstk17/bcsstk17.mtx', 'datasets/ex11/ex11.mtx', 'datasets/gupta3/gupta3.mtx', 'human_gene1/human_gene1.mtx', 'human_gene2/human_gene2.mtx']
     for fileName in fileNames:
         d[fileName] = 0
+        d[fileName + 'Dense'] = 0
     for i in range(10):
         print("Iteration", i)
         for fileName in fileNames:
@@ -160,44 +155,36 @@ if __name__ == "__main__":
             #fileName = 'datasets/494_bus.mtx'
             mat = mmread(fileName)        #reads the mtx file
             A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
-            A = np.float32(A)
-            B = np.float32(A)
+            A = np.asarray(np.float32(A))
+            B = np.asarray(np.float32(A))
             row,col = A.shape
             print("Rows:", row)
             print("Cols:", col)
             # print("Cores:", cores)
             # print("A:\n", A)
             # print("B:\n", B)
+            # start = time.time()
+            # result = MatrixMultiply(A,B,partitionLimit)
+            # end = time.time()
             start = time.time()
-            result = MatrixMultiply(A,B,partitionLimit)
+            result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
             end = time.time()
+            #print("CPU to GPU:", cputoGPUCounter)
+            #print("GPU to CPU:", gputoCPUCounter)
             # print("C:\n",result)
             # print("Time Taken:", end - start)
             d[fileName] += end - start
+
+            # A = np.random.randn(row, col)
+            # A = np.asarray(np.float32(A))
+            # B = np.asarray(np.float32(A))
+            # start = time.time()
+            # result = MatrixMultiply(A,B,partitionLimit)
+            # end = time.time()
+            # d[fileName + 'Dense'] += end - start
+
         print("Total (10 iterations):", d)
     for fileName in fileNames:
         d[fileName] /= 10.0
+        d[fileName + 'Dense'] /= 10.0
     print("Avg (10 iterations):", d)
-
-    # print()
-    # print("Reading Matrix File Test")
-    # fileName = 'datasets/ex11/ex11.mtx'
-    # mat = mmread(fileName)        #reads the mtx file
-    # A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
-    # A = np.float32(A)
-    # B = np.float32(A)
-    # row,col = A.shape
-    # print("Rows:", row)
-    # print("Cols:", col)
-    # # print("Cores:", cores)
-    # # print("A:\n", A)
-    # # print("B:\n", B)
-    # start = time.time()
-    # result = MatrixMultiply(A,B,partitionLimit)
-    # end = time.time()
-    # # print("C:\n",result)
-    # # print("Time Taken:", end - start)
-    # d[fileName] = end - start
-
-    # print(d)
-
