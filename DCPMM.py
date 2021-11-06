@@ -18,15 +18,19 @@ def MatrixMultiply(A,B,c):
 
 def Partition(A,B,c):
     m,n = A.shape
+    n,p = B.shape
     #h = nvmlDeviceGetHandleByIndex(0)
     info = nvmlDeviceGetMemoryInfo(h)
-    if (15 * m**2 < info.free):
+    #if (15 * m**2 < info.free):
+    if (((m*n) + (n*p)) * 8 < info.free):
+        #maybe time these
         return PartitionGPU(A,B,c)
     else:
         return PartitionCPU(A,B,c)
 
 def PartitionGPU(A,B,c):
     m,n = A.shape
+    #print("GPU")
     if (type(A) == np.ndarray):
         A = cp.array(A)
         B = cp.array(B)
@@ -34,8 +38,15 @@ def PartitionGPU(A,B,c):
         #axis 0 = rows, axis 1 = columns
         [A1,A2] = cp.array_split(A, 2, axis=1)
         [B1,B2] = cp.array_split(B, 2, axis=0)
-        return MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
-        #return cp.asnumpy(MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c))
+        C1 = cp.array(MatrixMultiply(A1,B1,c))
+        del A1
+        del B1
+        C2 = cp.array(MatrixMultiply(A2,B2,c))
+        del A2
+        del B2
+        return C1 + C2
+
+        #return cp.array(MatrixMultiply(A1,B1,c)) + cp.array(MatrixMultiply(A2,B2,c))
     else: #m>n
         [A1,A2] = cp.array_split(A, 2, axis=0)
         [B1,B2] = cp.array_split(B, 2, axis=1)
@@ -52,10 +63,10 @@ def PartitionGPU(A,B,c):
         del C3
         del C4
         return cp.vstack((C12,C34))
-        #return cp.asnumpy(cp.vstack((C12,C34)))
 
 def PartitionCPU(A,B,c):
     m,n = A.shape
+    #print("CPU")
     if (type(A) == cp.ndarray):
         A = cp.asnumpy(A)
         B = cp.asnumpy(B)
@@ -63,7 +74,7 @@ def PartitionCPU(A,B,c):
         #axis 0 = rows, axis 1 = columns
         [A1,A2] = np.array_split(A, 2, axis=1)
         [B1,B2] = np.array_split(B, 2, axis=0)
-        C = cp.asnumpy(MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c))
+        C = cp.asnumpy(MatrixMultiply(A1,B1,c)) + cp.asnumpy(MatrixMultiply(A2,B2,c))
         return C
     else: #m>n
         [A1,A2] = np.array_split(A, 2, axis=0)
