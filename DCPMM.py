@@ -7,6 +7,7 @@ from multiprocessing import Pool, cpu_count
 from numba import jit, njit, prange, cuda
 from scipy.linalg import blas as FB
 from pynvml import *
+import pandas as pd
 
 def MatrixMultiply(A,B,c):
     m,n = A.shape
@@ -22,7 +23,7 @@ def Partition(A,B,c):
     #h = nvmlDeviceGetHandleByIndex(0)
     info = nvmlDeviceGetMemoryInfo(h)
     #if (15 * m**2 < info.free):
-    if (((m*n) + (n*p)) * 8 < info.free):
+    if (((m*n) + (n*p)) * 16 < info.free):
         #maybe time these
         return PartitionGPU(A,B,c)
     else:
@@ -105,13 +106,13 @@ if __name__ == "__main__":
     partitionLimit = math.sqrt(info.free / (8)) / 2
     #print(partitionLimit)
 
-    row = 20000
-    col = 20000
+    row = 10000
+    col = 10000
     testNums = [10, 20, 50, 80, 100, 150, 200, 300]
     np.random.seed(42)
 
-    A = np.random.randint(10, size=(row, col))
-    B = np.random.randint(10, size=(row, col))
+    A = np.random.randint(low=1, high=10, size=(row, col))
+    B = np.random.randint(low=1, high=10, size=(row, col))
     cores = cpu_count()
     
     print("Rows:", row)
@@ -134,28 +135,69 @@ if __name__ == "__main__":
     #print("Numpy MM")
     #print("Time Taken:", end - start)
 
+    start = time.time()
+    temp = cupyMult(A,B)
+    end = time.time()
+    print("C:\n",temp)
+    print("Cupy MM")
+    print("Time Taken:", end - start)
+
     # start = time.time()
-    # temp = cupyMult(A,B)
+    # result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
     # end = time.time()
-    # print("C:\n",temp)
-    # print("Cupy MM")
+    # print("C:\n",result)
     # print("Time Taken:", end - start)
 
-    print()
-    print("Reading Matrix File Test")
-    fileName = 'datasets/494_bus.mtx'
-    mat = mmread(fileName)        #reads the mtx file
-    A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
-    A = cp.array(A)
-    B = cp.array(A)
-    row,col = A.shape
-    print("Rows:", row)
-    print("Cols:", col)
-    print("Cores:", cores)
-    print("A:\n", A)
-    print("B:\n", B)
-    start = time.time()
-    result = MatrixMultiply(A,B,row/cores)
-    end = time.time()
-    print("C:\n",result)
-    print("Time Taken:", end - start)
+    d = {}
+    fileNames = ['datasets/494_bus.mtx', 'datasets/bcsstk17/bcsstk17.mtx', 'datasets/ex11/ex11.mtx', 'datasets/gupta3/gupta3.mtx', 'human_gene1/human_gene1.mtx', 'human_gene2/human_gene2.mtx']
+    for fileName in fileNames:
+        d[fileName] = 0
+    for i in range(10):
+        print("Iteration", i)
+        for fileName in fileNames:
+            print()
+            print(fileName)
+            #fileName = 'datasets/494_bus.mtx'
+            mat = mmread(fileName)        #reads the mtx file
+            A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
+            A = np.float32(A)
+            B = np.float32(A)
+            row,col = A.shape
+            print("Rows:", row)
+            print("Cols:", col)
+            # print("Cores:", cores)
+            # print("A:\n", A)
+            # print("B:\n", B)
+            start = time.time()
+            result = MatrixMultiply(A,B,partitionLimit)
+            end = time.time()
+            # print("C:\n",result)
+            # print("Time Taken:", end - start)
+            d[fileName] += end - start
+        print("Total (10 iterations):", d)
+    for fileName in fileNames:
+        d[fileName] /= 10.0
+    print("Avg (10 iterations):", d)
+
+    # print()
+    # print("Reading Matrix File Test")
+    # fileName = 'datasets/ex11/ex11.mtx'
+    # mat = mmread(fileName)        #reads the mtx file
+    # A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
+    # A = np.float32(A)
+    # B = np.float32(A)
+    # row,col = A.shape
+    # print("Rows:", row)
+    # print("Cols:", col)
+    # # print("Cores:", cores)
+    # # print("A:\n", A)
+    # # print("B:\n", B)
+    # start = time.time()
+    # result = MatrixMultiply(A,B,partitionLimit)
+    # end = time.time()
+    # # print("C:\n",result)
+    # # print("Time Taken:", end - start)
+    # d[fileName] = end - start
+
+    # print(d)
+
