@@ -21,19 +21,19 @@ def Partition(A,B,c):
     h = nvmlDeviceGetHandleByIndex(0)
     info = nvmlDeviceGetMemoryInfo(h)
     if (20 * m**2 < info.free):
-        return PartitionGPU(cp.array(A),cp.array(B),c)
+        return PartitionGPU(A,B,c)
     else:
         return PartitionCPU(A,B,c)
 
 def PartitionGPU(A,B,c):
     m,n = A.shape
-    #print(type(A))
-    #print(type(B))
+    if (type(A) == np.ndarray):
+        A = cp.array(A)
+        B = cp.array(B)
     if m <= n:
         #axis 0 = rows, axis 1 = columns
         [A1,A2] = cp.array_split(A, 2, axis=1)
         [B1,B2] = cp.array_split(B, 2, axis=0)
-        #print(type(A1))
         return MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c)
         #return cp.asnumpy(MatrixMultiply(A1,B1,c) + MatrixMultiply(A2,B2,c))
     else: #m>n
@@ -56,9 +56,9 @@ def PartitionGPU(A,B,c):
 
 def PartitionCPU(A,B,c):
     m,n = A.shape
-    #if (type(A) == cp.ndarray):
-    A = cp.asnumpy(A)
-    B = cp.asnumpy(B)
+    if (type(A) == cp.ndarray):
+        A = cp.asnumpy(A)
+        B = cp.asnumpy(B)
     if m <= n:
         #axis 0 = rows, axis 1 = columns
         [A1,A2] = np.array_split(A, 2, axis=1)
