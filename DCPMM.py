@@ -56,6 +56,7 @@ def PartitionGPU(A,B,c):
 
 def PartitionCPU(A,B,c):
     m,n = A.shape
+    #if (type(A) == cp.ndarray):
     A = cp.asnumpy(A)
     B = cp.asnumpy(B)
     if m <= n:
