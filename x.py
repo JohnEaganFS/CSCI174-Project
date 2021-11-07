@@ -6,41 +6,7 @@ from multiprocessing import Pool, cpu_count
 from numba import jit, njit, prange, cuda
 from scipy.linalg import blas as FB
 
-@njit(parallel=True, fastmath=True)
-def allInOne(A,B,c):
-    m,n = A.shape
-    n,p = B.shape
-    if m <= c: #base case we dont need to partition
-        C = np.full((m, p), 0)
-        for i in prange(m):
-            for j in range(p):
-                for k in range(n):
-                    C[i][j] += A[i][k]*B[k][j]
-                    
-        #C = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
-        #C = np.dot(A,B)
-        return C
-    if m <= n:
-        #axis 0 = rows, axis 1 = columns
-        [A1,A2] = np.array_split(A, 2, axis=1)
-        [B1,B2] = np.array_split(B, 2, axis=0)
-        C = allInOne(A1,B1,c) + allInOne(A2,B2,c)
-        return C
-    else: #m>n
-        [A1,A2] = np.array_split(A, 2, axis=0)
-        [B1,B2] = np.array_split(B, 2, axis=1)
-        C1 = allInOne(A1,B1,c)
-        C2 = allInOne(A1,B2,c)
-        C3 = allInOne(A2,B1,c)
-        C4 = allInOne(A2,B2,c)
-        
-        C12 = np.hstack((C1,C2)) #supposed to be append horizontal. not sure which axis to use
-        C34 = np.hstack((C3,C4))
-        C = np.vstack((C12,C34))
-        return C
-
 @njit(parallel=True, fastmath=True)#compile function so it runs as machine code
-#@jit(target = "cuda")
 def MatrixMultiply(A,B,c):
     m,n = A.shape
     n,p = B.shape
@@ -50,9 +16,7 @@ def MatrixMultiply(A,B,c):
             for j in range(p):
                 for k in range(n):
                     C[i][j] += A[i][k]*B[k][j]
-                    
-        #C = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
-        #C = np.dot(A,B)
+        #return np.dot(A,B)
         return C
     return Partition(A,B,c)
 
@@ -79,72 +43,122 @@ def Partition(A,B,c):
         C = np.vstack((C12,C34))
         return C
 
-@njit
-def numpyMult(A,B):
-    return np.dot(A,B)
-
 if __name__ == "__main__":
-    row = 3000
-    col = 3000
-    testNums = [10, 20, 50, 80, 100, 150, 200, 300]
-    np.random.seed(42)
+    # row = 3000
+    # col = 3000
+    # testNums = [10, 20, 50, 80, 100, 150, 200, 300]
+    # np.random.seed(42)
 
-    A = np.random.randint(10, size=(row, col))
-    B = np.random.randint(10, size=(row, col))
-    C = np.full((row, col), 0)
+    # A = np.random.randint(10, size=(row, col))
+    # B = np.random.randint(10, size=(row, col))
+    # C = np.full((row, col), 0)
     cores = cpu_count()
     
     
-    print("Rows:", row)
-    print("Cols:", col)
-    print("Cores:", cores)
-    print("A:\n", A)
-    print("B:\n", B)
-   
-    #print(timeit.timeit("Partition(A,B,row/cores)", globals=globals(), number=1))
+    # print("Rows:", row)
+    # print("Cols:", col)
+    # print("Cores:", cores)
+    # print("A:\n", A)
+    # print("B:\n", B)
 
-    start = time.time()
-    result = MatrixMultiply(A,B,row/cores)
-    #result = allInOne(A,B,row/cores)
-    #result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
-    end = time.time()
-    print("C:\n",result)
-    print("Time Taken:", end - start)
+    # start = time.time()
+    # result = MatrixMultiply(A,B,row/cores)
+    # #result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
+    # end = time.time()
+    # print("C:\n",result)
+    # print("Time Taken:", end - start)
+
+    d = {} # Dictionary for storing execution time of each dataset
+    fileNames = ['datasets/494_bus.mtx', 'datasets/bcsstk17/bcsstk17.mtx', 'datasets/ex11/ex11.mtx', 'datasets/gupta3/gupta3.mtx', 'human_gene1/human_gene1.mtx', 'human_gene2/human_gene2.mtx']
+
+    for fileName in fileNames: # Initialize times to 0
+        d[fileName] = 0
+        d[fileName + 'Dense'] = 0
+        #d[fileName+'Numpy'] = 0
+        #d[fileName+'NumpyDense'] = 0
+    for i in range(1): # For 10 iterations (totaling time for 10 and then averaging)
+        print("Iteration", i)
+        for fileName in fileNames: # for each dataset
+            print()
+            print(fileName)
+            mat = mmread(fileName)        # reads the mtx file
+            A = mat.todense(None,None)    # changes the matrix type to numpy.matrix
+            A = np.asarray(np.float32(A)) # converting matrices to ndarrays with float32 elements (8 bytes)
+            B = np.asarray(np.float32(A))
+            row,col = A.shape
+            print("Rows:", row)
+            print("Cols:", col)
+
+            start = time.time()
+            result = MatrixMultiply(A,B,row/cores) # Tracking execution time for our algorithm on the sparse dataset
+            end = time.time()
+            print("Time Taken:", end - start)
+            d[fileName] += end - start # Adding to time dictionary
+
+        print("Current Total:", d)
+    # Averaging execution time across all 10 runs
+    for fileName in fileNames:
+        d[fileName] /= 10.0
+        d[fileName + 'Dense'] /= 10.0
+        #d[fileName+'Numpy'] /= 10.0
+        #d[fileName+'NumpyDense'] /= 10.0
+    print("Avg (10 iterations):", d)
     
-    """
-    start = time.time()
-    temp = 0
-    temp = numpyMult(A.astype(float),B.astype(float))
-    end = time.time()
-    print("C:\n",temp)
-    print("Time Taken:", end - start)
-    """
-    
-    
-    """ 
-    Example reading datafile 
-    We can adjust this to read 2 different data files
-    We just have to make sure rows of col A = row B
-    """
-    fileName = 'datasets/494_bus.mtx'
-    mat = mmread(fileName)        #reads the mtx file
-    A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
-    B = A                         #Another copy to multiply by itself. 
-    row,col = A.shape
-    print("Rows:", row)
-    print("Cols:", col)
-    print("Cores:", cores)
-    print("A:\n", A)
-    print("B:\n", B)
-    start = time.time()
-    result = MatrixMultiply(A,B,row/cores)
-    end = time.time()
-    print("C:\n",result)
-    print("Time Taken:", end - start)
+    # """ 
+    # Example reading datafile 
+    # We can adjust this to read 2 different data files
+    # We just have to make sure rows of col A = row B
+    # """
+    # fileName = 'datasets/494_bus.mtx'
+    # mat = mmread(fileName)        #reads the mtx file
+    # A = mat.todense(None,None)    #changes the matrix type to numpy.matrix
+    # B = A                         #Another copy to multiply by itself. 
+    # row,col = A.shape
+    # print("Rows:", row)
+    # print("Cols:", col)
+    # print("Cores:", cores)
+    # print("A:\n", A)
+    # print("B:\n", B)
+    # start = time.time()
+    # result = MatrixMultiply(A,B,row/cores)
+    # end = time.time()
+    # print("C:\n",result)
+    # print("Time Taken:", end - start)
    
-    start = time.time()
-    temp = 0
-    temp = numpyMult(A.astype(float),B.astype(float))
-    end = time.time()
-    print("C:\n",temp)
-    print("Time Taken:", end - start)
+    # start = time.time()
+    # temp = 0
+    # temp = numpyMult(A.astype(float),B.astype(float))
+    # end = time.time()
+    # print("C:\n",temp)
+    # print("Time Taken:", end - start)
+
+    # start = time.time()
+    # result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
+    # end = time.time()
+    # print("C:\n",result)
+    # print("Time Taken:", end - start)
+
+    # result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
+
+    # Verification Testing (ignore)
+    # row = 10000
+    # col = 10000
+    # testNums = [10, 20, 50, 80, 100, 150, 200, 300]
+    # np.random.seed(42)
+
+    # A = np.random.randint(low=1, high=10, size=(row, col))
+    # B = np.random.randint(low=1, high=10, size=(row, col))
+    # cores = cpu_count()
+    
+    # print("Rows:", row)
+    # print("Cols:", col)
+    # print("Cores:", cores)
+    # print("A:\n", A)
+    # print("B:\n", B)
+
+    # start = time.time()
+    # result = MatrixMultiply(A,B,partitionLimit)
+    # end = time.time()
+    # print("C:\n",result)
+    # print("Our Algorithm")
+    # print("Time Taken:", end - start)
