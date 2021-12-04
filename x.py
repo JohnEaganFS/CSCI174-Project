@@ -44,29 +44,7 @@ def Partition(A,B,c):
         return C
 
 if __name__ == "__main__":
-    # row = 3000
-    # col = 3000
-    # testNums = [10, 20, 50, 80, 100, 150, 200, 300]
-    # np.random.seed(42)
-
-    # A = np.random.randint(10, size=(row, col))
-    # B = np.random.randint(10, size=(row, col))
-    # C = np.full((row, col), 0)
     cores = cpu_count()
-    
-    
-    # print("Rows:", row)
-    # print("Cols:", col)
-    # print("Cores:", cores)
-    # print("A:\n", A)
-    # print("B:\n", B)
-
-    # start = time.time()
-    # result = MatrixMultiply(A,B,row/cores)
-    # #result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
-    # end = time.time()
-    # print("C:\n",result)
-    # print("Time Taken:", end - start)
 
     d = {} # Dictionary for storing execution time of each dataset
     fileNames = ['datasets/494_bus.mtx', 'datasets/bcsstk17/bcsstk17.mtx', 'datasets/ex11/ex11.mtx', 'datasets/gupta3/gupta3.mtx', 'human_gene1/human_gene1.mtx', 'human_gene2/human_gene2.mtx']
@@ -123,42 +101,4 @@ if __name__ == "__main__":
     # result = MatrixMultiply(A,B,row/cores)
     # end = time.time()
     # print("C:\n",result)
-    # print("Time Taken:", end - start)
-   
-    # start = time.time()
-    # temp = 0
-    # temp = numpyMult(A.astype(float),B.astype(float))
-    # end = time.time()
-    # print("C:\n",temp)
-    # print("Time Taken:", end - start)
-
-    # start = time.time()
-    # result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
-    # end = time.time()
-    # print("C:\n",result)
-    # print("Time Taken:", end - start)
-
-    # result = FB.dgemm(alpha=1., a=A, b=B, trans_b=True)
-
-    # Verification Testing (ignore)
-    # row = 10000
-    # col = 10000
-    # testNums = [10, 20, 50, 80, 100, 150, 200, 300]
-    # np.random.seed(42)
-
-    # A = np.random.randint(low=1, high=10, size=(row, col))
-    # B = np.random.randint(low=1, high=10, size=(row, col))
-    # cores = cpu_count()
-    
-    # print("Rows:", row)
-    # print("Cols:", col)
-    # print("Cores:", cores)
-    # print("A:\n", A)
-    # print("B:\n", B)
-
-    # start = time.time()
-    # result = MatrixMultiply(A,B,partitionLimit)
-    # end = time.time()
-    # print("C:\n",result)
-    # print("Our Algorithm")
     # print("Time Taken:", end - start)
